@@ -10,6 +10,7 @@ class Movie(models.Model):
     image = models.ImageField(upload_to="movie_images/")
     release_year = models.IntegerField(default=2000)
     director = models.CharField(max_length=100, default="Unknown")  # <-- ADD THIS LINE
+    genre = models.CharField(max_length=50, default="Action")  # <-- ADD THIS LINE
 
     def __str__(self):
         return str(self.id) + " - " + self.name
