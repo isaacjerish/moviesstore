@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="p-3">
+  <div class="container">
+    <div class="row mt-3">
+      <div class="col mx-auto mb-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <h2>My Petitions</h2>
+          <a href="{% url 'petitions.create' %}" class="btn bg-dark text-white">
+            <i class="fas fa-plus"></i> Create New Petition
+          </a>
+        </div>
+        <hr />
+      </div>
+    </div>
+
+    <!-- Petitions List -->
+    <div class="row">
+      {% for petition in template_data.page_obj %}
+      <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h5 class="card-title">{{ petition.title }}</h5>
+              <span class="badge 
+                {% if petition.status == 'approved' %}bg-success
+                {% elif petition.status == 'rejected' %}bg-danger
+                {% else %}bg-warning{% endif %}">
+                {{ petition.get_status_display }}
+              </span>
+            </div>
+            
+            <p class="card-text">
+              <strong>Movie:</strong> {{ petition.movie_title }}
+              {% if petition.movie_year %}({{ petition.movie_year }}){% endif %}
+            </p>
+            
+            <p class="card-text">{{ petition.description|truncatewords:15 }}</p>
+            
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <i class="fas fa-heart text-danger"></i>
+                <span class="ms-1">{{ petition.votes_count }} votes</span>
+              </div>
+              <small class="text-muted">
+                {{ petition.created_at|date:"M d, Y" }}
+              </small>
+            </div>
+            
+            {% if petition.is_expired and petition.status == 'pending' %}
+            <div class="mt-2">
+              <span class="badge bg-secondary">Expired</span>
+            </div>
+            {% endif %}
+            
+            {% if petition.status == 'approved' %}
+            <div class="mt-2">
+              <span class="badge bg-success">
+                <i class="fas fa-check"></i> Movie Added to Catalog
+              </span>
+            </div>
+            {% endif %}
+          </div>
+          <div class="card-footer">
+            <a href="{% url 'petitions.show' id=petition.id %}" class="btn bg-dark text-white w-100">
+              View Details
+            </a>
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="col-12">
+        <div class="text-center py-5">
+          <h4>No petitions found</h4>
+          <p class="text-muted">You haven't created any petitions yet.</p>
+          <a href="{% url 'petitions.create' %}" class="btn bg-dark text-white">
+            Create Your First Petition
+          </a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if template_data.page_obj.has_other_pages %}
+    <nav aria-label="My petitions pagination">
+      <ul class="pagination justify-content-center">
+        {% if template_data.page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ template_data.page_obj.previous_page_number }}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in template_data.page_obj.paginator.page_range %}
+        {% if template_data.page_obj.number == num %}
+        <li class="page-item active">
+          <span class="page-link">{{ num }}</span>
+        </li>
+        {% else %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+        </li>
+        {% endif %}
+        {% endfor %}
+        
+        {% if template_data.page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ template_data.page_obj.next_page_number }}">Next</a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+    
+    <div class="mt-4">
+      <a href="{% url 'petitions.index' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to All Petitions
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock content %}

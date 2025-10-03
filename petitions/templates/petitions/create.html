@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="p-3">
+  <div class="container">
+    <div class="row mt-3">
+      <div class="col-md-8 mx-auto mb-3">
+        <h2>Create Movie Petition</h2>
+        <hr />
+        
+        <div class="card">
+          <div class="card-body">
+            <form method="POST">
+              {% csrf_token %}
+              
+              <div class="mb-3">
+                <label for="{{ template_data.form.title.id_for_label }}" class="form-label">
+                  <strong>Petition Title *</strong>
+                </label>
+                {{ template_data.form.title }}
+                {% if template_data.form.title.errors %}
+                <div class="text-danger">{{ template_data.form.title.errors }}</div>
+                {% endif %}
+                <div class="form-text">A catchy title for your petition (e.g., "Add The Dark Knight to our catalog")</div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="{{ template_data.form.movie_title.id_for_label }}" class="form-label">
+                  <strong>Movie Title *</strong>
+                </label>
+                {{ template_data.form.movie_title }}
+                {% if template_data.form.movie_title.errors %}
+                <div class="text-danger">{{ template_data.form.movie_title.errors }}</div>
+                {% endif %}
+              </div>
+              
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <label for="{{ template_data.form.movie_year.id_for_label }}" class="form-label">
+                    <strong>Release Year</strong>
+                  </label>
+                  {{ template_data.form.movie_year }}
+                  {% if template_data.form.movie_year.errors %}
+                  <div class="text-danger">{{ template_data.form.movie_year.errors }}</div>
+                  {% endif %}
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                  <label for="{{ template_data.form.movie_director.id_for_label }}" class="form-label">
+                    <strong>Director</strong>
+                  </label>
+                  {{ template_data.form.movie_director }}
+                  {% if template_data.form.movie_director.errors %}
+                  <div class="text-danger">{{ template_data.form.movie_director.errors }}</div>
+                  {% endif %}
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                  <label for="{{ template_data.form.movie_genre.id_for_label }}" class="form-label">
+                    <strong>Genre</strong>
+                  </label>
+                  {{ template_data.form.movie_genre }}
+                  {% if template_data.form.movie_genre.errors %}
+                  <div class="text-danger">{{ template_data.form.movie_genre.errors }}</div>
+                  {% endif %}
+                </div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="{{ template_data.form.description.id_for_label }}" class="form-label">
+                  <strong>Description *</strong>
+                </label>
+                {{ template_data.form.description }}
+                {% if template_data.form.description.errors %}
+                <div class="text-danger">{{ template_data.form.description.errors }}</div>
+                {% endif %}
+                <div class="form-text">Explain why this movie should be added to our catalog. Be persuasive!</div>
+              </div>
+              
+              <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                <strong>Note:</strong> Petitions are open for voting for 7 days. After that, they expire and can no longer receive votes.
+              </div>
+              
+              <div class="d-flex justify-content-between">
+                <a href="{% url 'petitions.index' %}" class="btn btn-outline-secondary">
+                  <i class="fas fa-arrow-left"></i> Cancel
+                </a>
+                <button type="submit" class="btn bg-dark text-white">
+                  <i class="fas fa-paper-plane"></i> Create Petition
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

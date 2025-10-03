@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="p-3">
+  <div class="container">
+    <div class="row mt-3">
+      <div class="col-md-8 mx-auto mb-3">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <h2>{{ template_data.petition.title }}</h2>
+          <span class="badge 
+            {% if template_data.petition.status == 'approved' %}bg-success
+            {% elif template_data.petition.status == 'rejected' %}bg-danger
+            {% else %}bg-warning{% endif %} fs-6">
+            {{ template_data.petition.get_status_display }}
+          </span>
+        </div>
+        
+        <div class="card">
+          <div class="card-body">
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <p><strong>Movie Title:</strong> {{ template_data.petition.movie_title }}</p>
+                {% if template_data.petition.movie_year %}
+                <p><strong>Release Year:</strong> {{ template_data.petition.movie_year }}</p>
+                {% endif %}
+              </div>
+              <div class="col-md-6">
+                {% if template_data.petition.movie_director %}
+                <p><strong>Director:</strong> {{ template_data.petition.movie_director }}</p>
+                {% endif %}
+                {% if template_data.petition.movie_genre %}
+                <p><strong>Genre:</strong> {{ template_data.petition.movie_genre }}</p>
+                {% endif %}
+              </div>
+            </div>
+            
+            <p><strong>Description:</strong></p>
+            <p>{{ template_data.petition.description }}</p>
+            
+            <hr>
+            
+            <div class="row">
+              <div class="col-md-6">
+                <p><strong>Created by:</strong> {{ template_data.petition.created_by.username }}</p>
+                <p><strong>Created:</strong> {{ template_data.petition.created_at|date:"F d, Y" }}</p>
+              </div>
+              <div class="col-md-6">
+                <div class="d-flex align-items-center">
+                  <i class="fas fa-heart text-danger me-2"></i>
+                  <span class="fs-4 fw-bold me-3" id="votes-count">{{ template_data.petition.votes_count }}</span>
+                  <span>votes</span>
+                </div>
+              </div>
+            </div>
+            
+            {% if template_data.petition.is_expired and template_data.petition.status == 'pending' %}
+            <div class="alert alert-warning">
+              <i class="fas fa-exclamation-triangle"></i>
+              This petition has expired (7 days old) and is no longer accepting votes.
+            </div>
+            {% endif %}
+            
+            {% if template_data.petition.status == 'approved' %}
+            <div class="alert alert-success">
+              <i class="fas fa-check-circle"></i>
+              This petition has been approved! The movie should now be available in our catalog.
+            </div>
+            {% elif template_data.petition.status == 'rejected' %}
+            <div class="alert alert-danger">
+              <i class="fas fa-times-circle"></i>
+              This petition has been rejected.
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        
+        <!-- Voting Section -->
+        {% if user.is_authenticated and template_data.petition.is_active %}
+        <div class="card mt-4">
+          <div class="card-body text-center">
+            <h5>Support this petition</h5>
+            <button class="btn btn-lg 
+              {% if template_data.user_voted %}btn-danger{% else %}btn-outline-danger{% endif %}" 
+              id="vote-btn" 
+              data-petition-id="{{ template_data.petition.id }}"
+              data-user-voted="{{ template_data.user_voted|yesno:'true,false' }}">
+              <i class="fas fa-heart"></i>
+              <span id="vote-text">
+                {% if template_data.user_voted %}Remove Vote{% else %}Vote{% endif %}
+              </span>
+            </button>
+            <p class="text-muted mt-2">
+              {% if template_data.user_voted %}
+              You have voted on this petition. Click to remove your vote.
+              {% else %}
+              Click to vote for this movie to be added to our catalog.
+              {% endif %}
+            </p>
+          </div>
+        </div>
+        {% elif not user.is_authenticated %}
+        <div class="card mt-4">
+          <div class="card-body text-center">
+            <p>Please <a href="{% url 'accounts.login' %}">login</a> to vote on this petition.</p>
+          </div>
+        </div>
+        {% endif %}
+        
+        <!-- Recent Votes -->
+        {% if template_data.recent_votes %}
+        <div class="card mt-4">
+          <div class="card-header">
+            <h6 class="mb-0">Recent Votes</h6>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              {% for vote in template_data.recent_votes %}
+              <div class="col-md-6 mb-2">
+                <div class="d-flex align-items-center">
+                  <i class="fas fa-heart text-danger me-2"></i>
+                  <span>{{ vote.user.username }}</span>
+                  <small class="text-muted ms-auto">{{ vote.created_at|date:"M d" }}</small>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        
+        <div class="mt-4">
+          <a href="{% url 'petitions.index' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Petitions
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const voteBtn = document.getElementById('vote-btn');
+    if (voteBtn) {
+        voteBtn.addEventListener('click', function() {
+            const petitionId = this.dataset.petitionId;
+            const userVoted = this.dataset.userVoted === 'true';
+            
+            fetch(`/petitions/${petitionId}/vote/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update vote count
+                    document.getElementById('votes-count').textContent = data.votes_count;
+                    
+                    // Update button state
+                    if (data.action === 'voted') {
+                        this.classList.remove('btn-outline-danger');
+                        this.classList.add('btn-danger');
+                        this.dataset.userVoted = 'true';
+                        document.getElementById('vote-text').textContent = 'Remove Vote';
+                    } else {
+                        this.classList.remove('btn-danger');
+                        this.classList.add('btn-outline-danger');
+                        this.dataset.userVoted = 'false';
+                        document.getElementById('vote-text').textContent = 'Vote';
+                    }
+                    
+                    // Show success message
+                    alert(data.message);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while voting.');
+            });
+        });
+    }
+});
+</script>
+
+{% csrf_token %}
+{% endblock content %}
