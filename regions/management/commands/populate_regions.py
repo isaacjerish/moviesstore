@@ -12,11 +12,11 @@ class Command(BaseCommand):
         self.stdout.write('Creating US states...')
         self.create_states()
         
-        self.stdout.write('Creating mock movie popularity data...')
-        self.create_mock_popularity_data()
-        
         self.stdout.write(
             self.style.SUCCESS('Successfully populated regions data!')
+        )
+        self.stdout.write(
+            self.style.WARNING('Note: Run create_users_with_purchases to generate real user data.')
         )
 
     def create_states(self):
@@ -84,41 +84,3 @@ class Command(BaseCommand):
                 }
             )
 
-    def create_mock_popularity_data(self):
-        """Create mock movie popularity data for each state"""
-        states = State.objects.all()
-        movies = Movie.objects.all()
-        
-        if not movies.exists():
-            self.stdout.write(
-                self.style.WARNING('No movies found. Please add some movies first.')
-            )
-            return
-        
-        # Clear existing data
-        MoviePopularity.objects.all().delete()
-        
-        # Create mock data for each state-movie combination
-        for state in states:
-            # Select 5-15 random movies per state
-            num_movies = random.randint(5, min(15, movies.count()))
-            selected_movies = random.sample(list(movies), num_movies)
-            
-            for movie in selected_movies:
-                # Generate realistic purchase/view counts
-                base_purchases = random.randint(1, 100)
-                base_views = random.randint(10, 500)
-                
-                # Some states are more active (California, Texas, New York)
-                if state.name in ['California', 'Texas', 'New York', 'Florida']:
-                    base_purchases *= random.uniform(1.5, 2.5)
-                    base_views *= random.uniform(1.3, 2.0)
-                
-                MoviePopularity.objects.create(
-                    movie=movie,
-                    state=state,
-                    purchase_count=int(base_purchases),
-                    view_count=int(base_views)
-                )
-        
-        self.stdout.write(f'Created popularity data for {states.count()} states')

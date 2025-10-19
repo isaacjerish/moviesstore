@@ -160,3 +160,221 @@ def compare_states_api(request):
         
     except State.DoesNotExist:
         return JsonResponse({'error': 'One or both states not found'}, status=404)
+
+
+@require_http_methods(["GET"])
+def personal_purchases_api(request):
+    """API endpoint to get user's personal purchase history"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+    
+    # Get user's recent purchases
+    from cart.models import Order, Item
+    from django.db.models import Sum
+    
+    # Get user's orders with movie details
+    orders = Order.objects.filter(user=request.user).order_by('-date')[:10]
+    
+    # Aggregate purchases by movie
+    movie_purchases = {}
+    for order in orders:
+        items = Item.objects.filter(order=order)
+        for item in items:
+            movie_id = item.movie.id
+            if movie_id not in movie_purchases:
+                movie_purchases[movie_id] = {
+                    'movie': item.movie,
+                    'total_quantity': 0,
+                    'total_spent': 0,
+                    'purchase_dates': []
+                }
+            movie_purchases[movie_id]['total_quantity'] += item.quantity
+            movie_purchases[movie_id]['total_spent'] += item.price * item.quantity
+            movie_purchases[movie_id]['purchase_dates'].append(order.date.strftime('%Y-%m-%d'))
+    
+    # Convert to list and sort by total quantity
+    personal_data = []
+    for movie_id, data in movie_purchases.items():
+        personal_data.append({
+            'id': data['movie'].id,
+            'name': data['movie'].name,
+            'total_quantity': data['total_quantity'],
+            'total_spent': data['total_spent'],
+            'purchase_dates': data['purchase_dates'],
+            'image_url': f'/media/movie_images/{data["movie"].image}' if data['movie'].image else None,
+            'price': data['movie'].price,
+            'genre': data['movie'].genre,
+            'rating': data['movie'].rating,
+        })
+    
+    # Sort by total quantity (most purchased first)
+    personal_data.sort(key=lambda x: x['total_quantity'], reverse=True)
+    
+    return JsonResponse({
+        'user': {
+            'username': request.user.username,
+            'purchases': personal_data[:10]  # Top 10 personal purchases
+        }
+    })
+
+
+@require_http_methods(["GET"])
+def other_users_api(request):
+    """API endpoint to get other users' purchase data from a specific state"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+    
+    from cart.models import Order, Item
+    from django.contrib.auth.models import User
+    from django.db.models import Sum, Count
+    from accounts.models import UserProfile
+    
+    # Get state parameter
+    state_id = request.GET.get('state_id')
+    
+    if state_id:
+        try:
+            target_state = State.objects.get(id=state_id)
+            # Get users from the specific state (excluding current user)
+            other_users = User.objects.filter(
+                userprofile__state=target_state
+            ).exclude(id=request.user.id)
+            state_name = target_state.name
+        except State.DoesNotExist:
+            return JsonResponse({'error': 'State not found'}, status=404)
+    else:
+        # If no state specified, get all users except current user
+        other_users = User.objects.exclude(id=request.user.id)
+        state_name = "All States"
+    
+    # Get purchase data for other users
+    users_data = []
+    for user in other_users[:15]:  # Limit to 15 other users
+        # Get user's recent purchases
+        orders = Order.objects.filter(user=user).order_by('-date')[:5]
+        
+        # Aggregate purchases by movie
+        movie_purchases = {}
+        for order in orders:
+            items = Item.objects.filter(order=order)
+            for item in items:
+                movie_id = item.movie.id
+                if movie_id not in movie_purchases:
+                    movie_purchases[movie_id] = {
+                        'movie': item.movie,
+                        'total_quantity': 0,
+                        'total_spent': 0
+                    }
+                movie_purchases[movie_id]['total_quantity'] += item.quantity
+                movie_purchases[movie_id]['total_spent'] += item.price * item.quantity
+        
+        # Convert to list and sort by total quantity
+        user_purchases = []
+        for movie_id, data in movie_purchases.items():
+            user_purchases.append({
+                'id': data['movie'].id,
+                'name': data['movie'].name,
+                'total_quantity': data['total_quantity'],
+                'total_spent': data['total_spent'],
+                'image_url': f'/media/movie_images/{data["movie"].image}' if data['movie'].image else None,
+                'price': data['movie'].price,
+                'genre': data['movie'].genre,
+                'rating': data['movie'].rating,
+            })
+        
+        # Sort by total quantity
+        user_purchases.sort(key=lambda x: x['total_quantity'], reverse=True)
+        
+        if user_purchases:  # Only include users with purchases
+            users_data.append({
+                'username': user.username,
+                'purchases': user_purchases[:5]  # Top 5 purchases per user
+            })
+    
+    return JsonResponse({
+        'users': users_data,
+        'state_name': state_name,
+        'total_users': len(users_data)
+    })
+
+
+@require_http_methods(["GET"])
+def compare_personal_state_api(request):
+    """API endpoint to compare user's personal purchases with their state's trending"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+    
+    # Get user's state
+    try:
+        from accounts.models import UserProfile
+        profile = UserProfile.objects.get(user=request.user)
+        user_state = profile.state
+    except:
+        try:
+            user_state = State.objects.get(name='Georgia')
+        except State.DoesNotExist:
+            user_state = State.objects.first()
+    
+    if not user_state:
+        return JsonResponse({'error': 'User state not found'}, status=404)
+    
+    # Get user's personal purchases (reuse logic from personal_purchases_api)
+    from cart.models import Order, Item
+    
+    orders = Order.objects.filter(user=request.user).order_by('-date')[:10]
+    movie_purchases = {}
+    for order in orders:
+        items = Item.objects.filter(order=order)
+        for item in items:
+            movie_id = item.movie.id
+            if movie_id not in movie_purchases:
+                movie_purchases[movie_id] = {
+                    'movie': item.movie,
+                    'total_quantity': 0,
+                    'total_spent': 0
+                }
+            movie_purchases[movie_id]['total_quantity'] += item.quantity
+            movie_purchases[movie_id]['total_spent'] += item.price * item.quantity
+    
+    # Get state trending data
+    state_movies = MoviePopularity.objects.filter(state=user_state).order_by('-purchase_count', '-view_count')[:10]
+    
+    # Convert personal data
+    personal_data = []
+    for movie_id, data in movie_purchases.items():
+        personal_data.append({
+            'id': data['movie'].id,
+            'name': data['movie'].name,
+            'total_quantity': data['total_quantity'],
+            'total_spent': data['total_spent'],
+            'image_url': f'/media/movie_images/{data["movie"].image}' if data['movie'].image else None,
+            'price': data['movie'].price,
+            'genre': data['movie'].genre,
+            'rating': data['movie'].rating,
+        })
+    
+    # Convert state data
+    state_data = []
+    for movie_pop in state_movies:
+        state_data.append({
+            'id': movie_pop.movie.id,
+            'name': movie_pop.movie.name,
+            'purchase_count': movie_pop.purchase_count,
+            'view_count': movie_pop.view_count,
+            'total_activity': movie_pop.total_activity,
+            'image_url': f'/media/movie_images/{movie_pop.movie.image}' if movie_pop.movie.image else None,
+            'price': movie_pop.movie.price,
+            'genre': movie_pop.movie.genre,
+            'rating': movie_pop.movie.rating,
+        })
+    
+    return JsonResponse({
+        'personal': {
+            'username': request.user.username,
+            'movies': personal_data
+        },
+        'state': {
+            'name': user_state.name,
+            'movies': state_data
+        }
+    })

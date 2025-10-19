@@ -74,6 +74,35 @@
             </div>
           </div>
         </div>
+
+        <!-- Personal & User Comparisons -->
+        <div class="card mt-3">
+          <div class="card-header">
+            <h6 class="mb-0">Personal & User Comparisons</h6>
+          </div>
+          <div class="card-body">
+            <div class="d-grid gap-2">
+              <button class="btn btn-outline-primary btn-sm" id="personal-btn">
+                <i class="fas fa-user"></i> My Purchases vs My State
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" id="other-users-btn">
+                <i class="fas fa-users"></i> Users from Selected State
+              </button>
+              <button class="btn btn-outline-info btn-sm" id="my-purchases-btn">
+                <i class="fas fa-shopping-cart"></i> My Recent Purchases
+              </button>
+            </div>
+            <div id="personal-results" class="mt-3" style="display: none;">
+              <!-- Personal comparison results will be displayed here -->
+            </div>
+            <div id="other-users-results" class="mt-3" style="display: none;">
+              <!-- Other users results will be displayed here -->
+            </div>
+            <div id="my-purchases-results" class="mt-3" style="display: none;">
+              <!-- My purchases results will be displayed here -->
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -100,6 +129,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let statesLayer;
     let selectedStateId = null;
+    let currentSelectedState = null;
     
     // Load states data
     fetch('/regions/api/states/')
@@ -178,10 +208,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function selectState(stateId) {
         selectedStateId = stateId;
+        currentSelectedState = states.find(s => s.id === stateId);
         
         // Update sidebar title
-        const state = states.find(s => s.id === stateId);
-        document.getElementById('sidebar-title').textContent = `Trending in ${state.name}`;
+        document.getElementById('sidebar-title').textContent = `Trending in ${currentSelectedState.name}`;
         
         // Show loading
         document.getElementById('sidebar-content').innerHTML = `
@@ -379,6 +409,274 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
         
+        resultsDiv.innerHTML = html;
+    }
+    
+    // Personal & User Comparison Event Listeners
+    document.getElementById('personal-btn').addEventListener('click', function() {
+        hideAllResults();
+        showPersonalComparison();
+    });
+    
+    document.getElementById('other-users-btn').addEventListener('click', function() {
+        hideAllResults();
+        showOtherUsers();
+    });
+    
+    document.getElementById('my-purchases-btn').addEventListener('click', function() {
+        hideAllResults();
+        showMyPurchases();
+    });
+    
+    function hideAllResults() {
+        document.getElementById('personal-results').style.display = 'none';
+        document.getElementById('other-users-results').style.display = 'none';
+        document.getElementById('my-purchases-results').style.display = 'none';
+    }
+    
+    function showPersonalComparison() {
+        const resultsDiv = document.getElementById('personal-results');
+        resultsDiv.style.display = 'block';
+        resultsDiv.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading your data...</p>
+            </div>
+        `;
+        
+        fetch('/regions/api/compare-personal/')
+            .then(response => response.json())
+            .then(data => {
+                displayPersonalComparison(data);
+            })
+            .catch(error => {
+                console.error('Error loading personal comparison:', error);
+                resultsDiv.innerHTML = '<div class="alert alert-danger">Error loading your data</div>';
+            });
+    }
+    
+    function showOtherUsers() {
+        const resultsDiv = document.getElementById('other-users-results');
+        resultsDiv.style.display = 'block';
+        
+        // Check if a state is selected
+        if (!currentSelectedState) {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    Please select a state first to see users from that region.
+                </div>
+            `;
+            return;
+        }
+        
+        resultsDiv.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading users from ${currentSelectedState.name}...</p>
+            </div>
+        `;
+        
+        fetch(`/regions/api/other-users/?state_id=${currentSelectedState.id}`)
+            .then(response => response.json())
+            .then(data => {
+                displayOtherUsers(data);
+            })
+            .catch(error => {
+                console.error('Error loading other users:', error);
+                resultsDiv.innerHTML = '<div class="alert alert-danger">Error loading other users</div>';
+            });
+    }
+    
+    function showMyPurchases() {
+        const resultsDiv = document.getElementById('my-purchases-results');
+        resultsDiv.style.display = 'block';
+        resultsDiv.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading your purchases...</p>
+            </div>
+        `;
+        
+        fetch('/regions/api/personal/')
+            .then(response => response.json())
+            .then(data => {
+                displayMyPurchases(data);
+            })
+            .catch(error => {
+                console.error('Error loading personal purchases:', error);
+                resultsDiv.innerHTML = '<div class="alert alert-danger">Error loading your purchases</div>';
+            });
+    }
+    
+    function displayPersonalComparison(data) {
+        const resultsDiv = document.getElementById('personal-results');
+        
+        let html = `
+            <div class="row">
+                <div class="col-6">
+                    <h6 class="text-center">Your Purchases</h6>
+                    <div class="list-group list-group-flush">
+        `;
+        
+        if (data.personal.movies.length === 0) {
+            html += '<div class="text-muted text-center">No purchases yet</div>';
+        } else {
+            data.personal.movies.slice(0, 5).forEach((movie, index) => {
+                html += `
+                    <div class="list-group-item px-0 py-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="fw-bold">${index + 1}. ${movie.name}</small><br>
+                                <small class="text-muted">${movie.genre}</small>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-success">${movie.total_quantity} bought</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        html += `
+                    </div>
+                </div>
+                <div class="col-6">
+                    <h6 class="text-center">${data.state.name} Trending</h6>
+                    <div class="list-group list-group-flush">
+        `;
+        
+        data.state.movies.slice(0, 5).forEach((movie, index) => {
+            html += `
+                <div class="list-group-item px-0 py-1">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="fw-bold">${index + 1}. ${movie.name}</small><br>
+                            <small class="text-muted">${movie.genre}</small>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-success">${movie.purchase_count} purchases</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        resultsDiv.innerHTML = html;
+    }
+    
+    function displayOtherUsers(data) {
+        const resultsDiv = document.getElementById('other-users-results');
+        
+        if (data.users.length === 0) {
+            resultsDiv.innerHTML = `
+                <div class="text-muted text-center">
+                    <i class="fas fa-users"></i><br>
+                    No users with purchases found in ${data.state_name}
+                </div>
+            `;
+            return;
+        }
+        
+        let html = `
+            <div class="mb-3">
+                <h6 class="text-center">Users from ${data.state_name}</h6>
+                <small class="text-muted text-center d-block">${data.total_users} users with purchases</small>
+            </div>
+            <div class="accordion" id="usersAccordion">
+        `;
+        
+        data.users.forEach((user, userIndex) => {
+            html += `
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="heading${userIndex}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#collapse${userIndex}" aria-expanded="false" aria-controls="collapse${userIndex}">
+                            <div class="d-flex justify-content-between align-items-center w-100 me-3">
+                                <span>${user.username}</span>
+                                <span class="badge bg-primary">${user.purchases.length} movies</span>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="collapse${userIndex}" class="accordion-collapse collapse" 
+                         aria-labelledby="heading${userIndex}" data-bs-parent="#usersAccordion">
+                        <div class="accordion-body">
+                            <div class="list-group list-group-flush">
+            `;
+            
+            user.purchases.forEach((movie, index) => {
+                html += `
+                    <div class="list-group-item px-0 py-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="fw-bold">${index + 1}. ${movie.name}</small><br>
+                                <small class="text-muted">${movie.genre} • ${movie.rating}</small>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-success">${movie.total_quantity} bought</small><br>
+                                <small class="text-muted">$${movie.total_spent} spent</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        resultsDiv.innerHTML = html;
+    }
+    
+    function displayMyPurchases(data) {
+        const resultsDiv = document.getElementById('my-purchases-results');
+        
+        if (data.user.purchases.length === 0) {
+            resultsDiv.innerHTML = '<div class="text-muted text-center">No purchases yet. Start shopping!</div>';
+            return;
+        }
+        
+        let html = `
+            <h6 class="text-center">Your Recent Purchases</h6>
+            <div class="list-group list-group-flush">
+        `;
+        
+        data.user.purchases.forEach((movie, index) => {
+            html += `
+                <div class="list-group-item px-0 py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">${movie.name}</h6>
+                            <small class="text-muted">${movie.genre} • ${movie.rating}</small>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-success">${movie.total_quantity} bought</small><br>
+                            <small class="text-muted">$${movie.total_spent} spent</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
         resultsDiv.innerHTML = html;
     }
 });
