@@ -29,7 +29,7 @@ def state_movies_api(request, state_id):
                 'purchase_count': movie_pop.purchase_count,
                 'view_count': movie_pop.view_count,
                 'total_activity': movie_pop.total_activity,
-                'image_url': movie_pop.movie.image.url if movie_pop.movie.image else None,
+                'image_url': f'/media/movie_images/{movie_pop.movie.image}' if movie_pop.movie.image else None,
                 'price': movie_pop.movie.price,
                 'genre': movie_pop.movie.genre,
                 'rating': movie_pop.movie.rating,
@@ -70,7 +70,7 @@ def global_trending_api(request):
             'total_purchases': stat['total_purchases'],
             'total_views': stat['total_views'],
             'state_count': stat['state_count'],
-            'image_url': movie.image.url if movie.image else None,
+            'image_url': f'/media/movie_images/{movie.image}' if movie.image else None,
             'price': movie.price,
             'genre': movie.genre,
             'rating': movie.rating,
@@ -95,3 +95,68 @@ def states_list_api(request):
         })
     
     return JsonResponse({'states': states_data})
+
+
+@require_http_methods(["GET"])
+def compare_states_api(request):
+    """API endpoint to compare trending movies between two states"""
+    state1_id = request.GET.get('state1')
+    state2_id = request.GET.get('state2')
+    
+    if not state1_id or not state2_id:
+        return JsonResponse({'error': 'Both state1 and state2 parameters are required'}, status=400)
+    
+    try:
+        state1 = State.objects.get(id=state1_id)
+        state2 = State.objects.get(id=state2_id)
+        
+        # Get top movies for each state
+        state1_movies = MoviePopularity.objects.filter(state=state1).order_by('-purchase_count', '-view_count')[:10]
+        state2_movies = MoviePopularity.objects.filter(state=state2).order_by('-purchase_count', '-view_count')[:10]
+        
+        # Convert to dictionaries for easier comparison
+        state1_data = []
+        for movie_pop in state1_movies:
+            state1_data.append({
+                'id': movie_pop.movie.id,
+                'name': movie_pop.movie.name,
+                'purchase_count': movie_pop.purchase_count,
+                'view_count': movie_pop.view_count,
+                'total_activity': movie_pop.total_activity,
+                'image_url': f'/media/movie_images/{movie_pop.movie.image}' if movie_pop.movie.image else None,
+                'price': movie_pop.movie.price,
+                'genre': movie_pop.movie.genre,
+                'rating': movie_pop.movie.rating,
+            })
+        
+        state2_data = []
+        for movie_pop in state2_movies:
+            state2_data.append({
+                'id': movie_pop.movie.id,
+                'name': movie_pop.movie.name,
+                'purchase_count': movie_pop.purchase_count,
+                'view_count': movie_pop.view_count,
+                'total_activity': movie_pop.total_activity,
+                'image_url': f'/media/movie_images/{movie_pop.movie.image}' if movie_pop.movie.image else None,
+                'price': movie_pop.movie.price,
+                'genre': movie_pop.movie.genre,
+                'rating': movie_pop.movie.rating,
+            })
+        
+        return JsonResponse({
+            'state1': {
+                'id': state1.id,
+                'name': state1.name,
+                'abbreviation': state1.abbreviation,
+                'movies': state1_data
+            },
+            'state2': {
+                'id': state2.id,
+                'name': state2.name,
+                'abbreviation': state2.abbreviation,
+                'movies': state2_data
+            }
+        })
+        
+    except State.DoesNotExist:
+        return JsonResponse({'error': 'One or both states not found'}, status=404)

@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from regions.models import State, MoviePopularity
 import json
 
 
@@ -23,6 +24,10 @@ def index(request):
 def show(request, id):
     movie = Movie.objects.get(id=id)
     reviews = Review.objects.filter(movie=movie, is_reported=False)
+    
+    # Track movie view for popularity
+    track_movie_view(movie, request.user)
+    
     template_data = {}
     template_data["title"] = movie.name
     template_data["movie"] = movie
@@ -148,3 +153,35 @@ def rating_summary(request, id):
         
     except Exception as e:
         return JsonResponse({'error': 'An error occurred'}, status=500)
+
+
+def track_movie_view(movie, user):
+    """Track movie view for popularity calculation"""
+    if not user.is_authenticated:
+        return
+        
+    # Get user's state from their profile
+    try:
+        from accounts.models import UserProfile
+        profile = UserProfile.objects.get(user=user)
+        user_state = profile.state
+    except:
+        # Fallback to Georgia if no profile exists
+        try:
+            user_state = State.objects.get(name='Georgia')
+        except State.DoesNotExist:
+            user_state = State.objects.first()
+    
+    if not user_state:
+        return
+    
+    # Get or create MoviePopularity record for this movie and state
+    movie_popularity, created = MoviePopularity.objects.get_or_create(
+        movie=movie,
+        state=user_state,
+        defaults={'purchase_count': 0, 'view_count': 0}
+    )
+    
+    # Update view count
+    movie_popularity.view_count += 1
+    movie_popularity.save()

@@ -1,6 +1,8 @@
 from django.contrib.auth.forms import UserCreationForm
 from django.forms.utils import ErrorList
 from django.utils.safestring import mark_safe
+from django import forms
+from regions.models import State
 
 class CustomErrorList(ErrorList):
     def __str__(self):
@@ -9,6 +11,13 @@ class CustomErrorList(ErrorList):
         return mark_safe(''.join([f'<div class="alert alert-danger" role="alert">{e}</div>' for e in self]))
 
 class CustomUserCreationForm(UserCreationForm):
+    state = forms.ModelChoiceField(
+        queryset=State.objects.all().order_by('name'),
+        empty_label="Select your state",
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    
     def __init__(self, *args, **kwargs):
         super(CustomUserCreationForm, self).__init__(*args, **kwargs)
         for fieldname in ['username', 'password1', 'password2']:

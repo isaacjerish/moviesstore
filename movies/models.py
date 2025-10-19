@@ -7,7 +7,7 @@ class Movie(models.Model):
     name = models.CharField(max_length=255)
     price = models.IntegerField()
     description = models.TextField()
-    image = models.ImageField(upload_to="movie_images/")
+    image = models.CharField(max_length=255, default="dummy_movie.png")
     release_year = models.IntegerField(default=2000)
     director = models.CharField(max_length=100, default="Unknown")  # <-- ADD THIS LINE
     genre = models.CharField(max_length=50, default="Action")  # <-- ADD THIS LINE
