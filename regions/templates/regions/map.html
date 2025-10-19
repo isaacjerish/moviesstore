@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+{% block content %}
+{% load static %}
+
+<div class="p-3">
+  <div class="container">
+    <div class="row mt-3">
+      <div class="col mx-auto mb-3">
+        <h2>Local Popularity Map</h2>
+        <hr />
+        <p class="text-muted">Click on any state to see trending movies in that region</p>
+      </div>
+    </div>
+
+    <div class="row">
+      <!-- Map Container -->
+      <div class="col-lg-8">
+        <div class="card">
+          <div class="card-body p-0">
+            <div id="map" style="height: 500px; width: 100%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="col-lg-4">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0" id="sidebar-title">Select a State</h5>
+          </div>
+          <div class="card-body" id="sidebar-content">
+            <p class="text-muted">Click on a state on the map to see trending movies in that region.</p>
+          </div>
+        </div>
+
+        <!-- Global Trending -->
+        <div class="card mt-3">
+          <div class="card-header">
+            <h6 class="mb-0">Globally Trending</h6>
+          </div>
+          <div class="card-body" id="global-trending">
+            <div class="text-center">
+              <div class="spinner-border spinner-border-sm" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="mt-2 text-muted">Loading trending movies...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<!-- Leaflet JavaScript -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- US States GeoJSON -->
+<script src="https://unpkg.com/us-atlas@3/states-10m.json" type="application/json" id="states-geojson"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize map centered on US
+    const map = L.map('map').setView([39.8283, -98.5795], 4);
+    
+    // Add tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+    
+    let statesLayer;
+    let selectedStateId = null;
+    
+    // Load states data
+    fetch('/regions/api/states/')
+        .then(response => response.json())
+        .then(data => {
+            loadStatesData(data.states);
+            loadGlobalTrending();
+        })
+        .catch(error => {
+            console.error('Error loading states:', error);
+            document.getElementById('sidebar-content').innerHTML = 
+                '<div class="alert alert-danger">Error loading map data. Please refresh the page.</div>';
+        });
+    
+    function loadStatesData(states) {
+        // Create markers for each state
+        states.forEach(state => {
+            const marker = L.marker([state.center_lat, state.center_lng])
+                .addTo(map)
+                .bindPopup(`
+                    <div class="text-center">
+                        <h6>${state.name}</h6>
+                        <button class="btn btn-sm btn-primary" onclick="selectState(${state.id})">
+                            View Trending Movies
+                        </button>
+                    </div>
+                `);
+            
+            // Store state data on marker
+            marker.stateData = state;
+        });
+    }
+    
+    function loadGlobalTrending() {
+        fetch('/regions/api/trending/')
+            .then(response => response.json())
+            .then(data => {
+                displayGlobalTrending(data.movies);
+            })
+            .catch(error => {
+                console.error('Error loading global trending:', error);
+                document.getElementById('global-trending').innerHTML = 
+                    '<div class="alert alert-warning">Unable to load trending data</div>';
+            });
+    }
+    
+    function displayGlobalTrending(movies) {
+        const container = document.getElementById('global-trending');
+        
+        if (movies.length === 0) {
+            container.innerHTML = '<p class="text-muted">No trending data available</p>';
+            return;
+        }
+        
+        let html = '<div class="list-group list-group-flush">';
+        movies.slice(0, 5).forEach(movie => {
+            html += `
+                <div class="list-group-item px-0 py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">${movie.name}</h6>
+                            <small class="text-muted">${movie.genre} • ${movie.rating}</small>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-success">${movie.total_purchases} purchases</small><br>
+                            <small class="text-muted">${movie.state_count} states</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        container.innerHTML = html;
+    }
+    
+    function selectState(stateId) {
+        selectedStateId = stateId;
+        
+        // Update sidebar title
+        const state = states.find(s => s.id === stateId);
+        document.getElementById('sidebar-title').textContent = `Trending in ${state.name}`;
+        
+        // Show loading
+        document.getElementById('sidebar-content').innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading movies...</p>
+            </div>
+        `;
+        
+        // Load state movies
+        fetch(`/regions/api/state/${stateId}/movies/`)
+            .then(response => response.json())
+            .then(data => {
+                displayStateMovies(data.movies, data.state);
+            })
+            .catch(error => {
+                console.error('Error loading state movies:', error);
+                document.getElementById('sidebar-content').innerHTML = 
+                    '<div class="alert alert-danger">Error loading movies for this state</div>';
+            });
+    }
+    
+    function displayStateMovies(movies, state) {
+        const container = document.getElementById('sidebar-content');
+        
+        if (movies.length === 0) {
+            container.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    No movie data available for ${state.name}
+                </div>
+            `;
+            return;
+        }
+        
+        let html = `
+            <div class="mb-3">
+                <small class="text-muted">Top ${movies.length} trending movies in ${state.name}</small>
+            </div>
+            <div class="list-group list-group-flush">
+        `;
+        
+        movies.forEach((movie, index) => {
+            html += `
+                <div class="list-group-item px-0 py-2">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <span class="badge bg-primary">${index + 1}</span>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">${movie.name}</h6>
+                            <small class="text-muted">${movie.genre} • ${movie.rating}</small>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-success">${movie.purchase_count} purchases</small><br>
+                            <small class="text-muted">${movie.view_count} views</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+    
+    // Make selectState globally available
+    window.selectState = selectState;
+    
+    // Store states data globally for popup access
+    let states = [];
+    fetch('/regions/api/states/')
+        .then(response => response.json())
+        .then(data => {
+            states = data.states;
+        });
+});
+</script>
+
+<style>
+#map {
+    border-radius: 0.375rem;
+}
+
+.leaflet-popup-content {
+    margin: 8px 12px;
+}
+
+.leaflet-popup-content h6 {
+    margin-bottom: 8px;
+}
+
+.list-group-item {
+    border-left: none;
+    border-right: none;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+</style>
+
+{% endblock content %}
