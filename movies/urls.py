@@ -20,4 +20,6 @@ urlpatterns = [
         views.report_review,
         name="movies.report_review",
     ),
+    path("<int:id>/rate/", views.submit_rating, name="movies.submit_rating"),
+    path("<int:id>/rating-summary/", views.rating_summary, name="movies.rating_summary"),
 ]

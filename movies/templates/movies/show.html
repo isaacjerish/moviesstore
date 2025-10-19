@@ -12,6 +12,25 @@
         <p><b>Rating:</b> {{ template_data.movie.rating }}</p>
         <p><b>Director:</b> {{ template_data.movie.director }}</p> <p><b>Release Year:</b> {{ template_data.movie.release_year }}</p>        
         <p><b>Price:</b> ${{ template_data.movie.price }}</p>
+        
+        <!-- Rating Section -->
+        <div class="rating-section mb-3">
+          <h5>Rate this movie:</h5>
+          <div class="star-rating" data-movie-id="{{ template_data.movie.id }}">
+            <div class="stars">
+              <span class="star" data-rating="1">★</span>
+              <span class="star" data-rating="2">★</span>
+              <span class="star" data-rating="3">★</span>
+              <span class="star" data-rating="4">★</span>
+              <span class="star" data-rating="5">★</span>
+            </div>
+            <div class="rating-info mt-2">
+              <span class="average-rating">Average: <span id="avg-rating">-</span></span>
+              <span class="total-ratings ml-3">(<span id="total-ratings">0</span> ratings)</span>
+            </div>
+          </div>
+        </div>
+        
         <p class="card-text">
           <form method="post" action="{% url 'cart.add' id=template_data.movie.id %}">
             <div class="row">
@@ -95,4 +114,109 @@
     </div>
   </div>
 </div>
+
+<style>
+.star-rating .stars {
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.star-rating .star {
+  color: #ddd;
+  transition: color 0.2s;
+  margin-right: 5px;
+}
+
+.star-rating .star:hover,
+.star-rating .star.active {
+  color: #ffc107;
+}
+
+.rating-info {
+  font-size: 14px;
+  color: #666;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const starRating = document.querySelector('.star-rating');
+  const stars = starRating.querySelectorAll('.star');
+  const movieId = starRating.dataset.movieId;
+  const avgRatingSpan = document.getElementById('avg-rating');
+  const totalRatingsSpan = document.getElementById('total-ratings');
+  
+  let currentRating = 0;
+  
+  // Load initial rating summary
+  loadRatingSummary();
+  
+  // Add click event listeners to stars
+  stars.forEach((star, index) => {
+    star.addEventListener('click', function() {
+      const rating = parseInt(this.dataset.rating);
+      submitRating(rating);
+    });
+    
+    star.addEventListener('mouseenter', function() {
+      highlightStars(index + 1);
+    });
+  });
+  
+  starRating.addEventListener('mouseleave', function() {
+    highlightStars(currentRating);
+  });
+  
+  function highlightStars(rating) {
+    stars.forEach((star, index) => {
+      if (index < rating) {
+        star.classList.add('active');
+      } else {
+        star.classList.remove('active');
+      }
+    });
+  }
+  
+  function submitRating(rating) {
+    {% if user.is_authenticated %}
+    fetch(`/movies/${movieId}/rate/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}'
+      },
+      body: JSON.stringify({ rating: rating })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        currentRating = rating;
+        highlightStars(rating);
+        loadRatingSummary();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('An error occurred while submitting the rating.');
+    });
+    {% else %}
+    alert('Please log in to rate this movie.');
+    {% endif %}
+  }
+  
+  function loadRatingSummary() {
+    fetch(`/movies/${movieId}/rating-summary/`)
+    .then(response => response.json())
+    .then(data => {
+      avgRatingSpan.textContent = data.average_rating || '-';
+      totalRatingsSpan.textContent = data.total_ratings || '0';
+    })
+    .catch(error => {
+      console.error('Error loading rating summary:', error);
+    });
+  }
+});
+</script>
 {% endblock content %}

@@ -1,6 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Movie, Review
+from .models import Movie, Review, Rating
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+import json
 
 
 def index(request):
@@ -75,3 +79,72 @@ def report_review(request, id, review_id):
     review.is_reported = True
     review.save()
     return redirect("movies.show", id=id)
+
+
+@login_required
+@require_POST
+@csrf_exempt
+def submit_rating(request, id):
+    try:
+        movie = get_object_or_404(Movie, id=id)
+        data = json.loads(request.body)
+        rating_value = int(data.get('rating'))
+        
+        # Validate rating value
+        if rating_value < 1 or rating_value > 5:
+            return JsonResponse({'error': 'Rating must be between 1 and 5'}, status=400)
+        
+        # Get or create rating (update if exists due to unique_together constraint)
+        rating, created = Rating.objects.get_or_create(
+            user=request.user,
+            movie=movie,
+            defaults={'rating': rating_value}
+        )
+        
+        if not created:
+            # Update existing rating
+            rating.rating = rating_value
+            rating.save()
+        
+        return JsonResponse({
+            'success': True,
+            'rating': rating_value,
+            'message': 'Rating submitted successfully'
+        })
+        
+    except (ValueError, json.JSONDecodeError):
+        return JsonResponse({'error': 'Invalid rating data'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': 'An error occurred'}, status=500)
+
+
+def rating_summary(request, id):
+    try:
+        movie = get_object_or_404(Movie, id=id)
+        ratings = movie.user_ratings.all()
+        
+        if not ratings.exists():
+            return JsonResponse({
+                'average_rating': 0,
+                'total_ratings': 0,
+                'rating_distribution': {str(i): 0 for i in range(1, 6)}
+            })
+        
+        # Calculate average rating
+        total_ratings = ratings.count()
+        average_rating = sum(r.rating for r in ratings) / total_ratings
+        
+        # Calculate rating distribution
+        rating_distribution = {}
+        for i in range(1, 6):
+            count = ratings.filter(rating=i).count()
+            rating_distribution[str(i)] = count
+        
+        return JsonResponse({
+            'average_rating': round(average_rating, 2),
+            'total_ratings': total_ratings,
+            'rating_distribution': rating_distribution
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': 'An error occurred'}, status=500)
