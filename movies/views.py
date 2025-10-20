@@ -155,6 +155,28 @@ def rating_summary(request, id):
         return JsonResponse({'error': 'An error occurred'}, status=500)
 
 
+@login_required
+def user_rating(request, id):
+    """Get the current user's rating for a movie"""
+    try:
+        movie = get_object_or_404(Movie, id=id)
+        rating = Rating.objects.filter(user=request.user, movie=movie).first()
+        
+        if rating:
+            return JsonResponse({
+                'user_rating': rating.rating,
+                'has_rated': True
+            })
+        else:
+            return JsonResponse({
+                'user_rating': 0,
+                'has_rated': False
+            })
+            
+    except Exception as e:
+        return JsonResponse({'error': 'An error occurred'}, status=500)
+
+
 def track_movie_view(movie, user):
     """Track movie view for popularity calculation"""
     if not user.is_authenticated:

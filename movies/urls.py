@@ -22,4 +22,5 @@ urlpatterns = [
     ),
     path("<int:id>/rate/", views.submit_rating, name="movies.submit_rating"),
     path("<int:id>/rating-summary/", views.rating_summary, name="movies.rating_summary"),
+    path("<int:id>/user-rating/", views.user_rating, name="movies.user_rating"),
 ]

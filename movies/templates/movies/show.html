@@ -148,8 +148,9 @@ document.addEventListener('DOMContentLoaded', function() {
   
   let currentRating = 0;
   
-  // Load initial rating summary
+  // Load initial rating summary and user's current rating
   loadRatingSummary();
+  loadUserRating();
   
   // Add click event listeners to stars
   stars.forEach((star, index) => {
@@ -216,6 +217,22 @@ document.addEventListener('DOMContentLoaded', function() {
     .catch(error => {
       console.error('Error loading rating summary:', error);
     });
+  }
+  
+  function loadUserRating() {
+    {% if user.is_authenticated %}
+    fetch(`/movies/${movieId}/user-rating/`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.has_rated) {
+        currentRating = data.user_rating;
+        highlightStars(currentRating);
+      }
+    })
+    .catch(error => {
+      console.error('Error loading user rating:', error);
+    });
+    {% endif %}
   }
 });
 </script>
